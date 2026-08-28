@@ -1,0 +1,79 @@
+@host = http://localhost:5076
+
+### CSV — naglowek + dwa wiersze
+# id,name,city
+# 1,Anna,Katowice
+# 2,Piotr,Gliwice
+POST {{host}}/api/v1/parse-content
+Content-Type: application/json
+
+{
+  "type": "CSV",
+  "content": "aWQsbmFtZSxjaXR5CjEsQW5uYSxLYXRvd2ljZQoyLFBpb3RyLEdsaXdpY2U="
+}
+
+### CSV — pole cytowane z przecinkiem w srodku
+# id,name
+# 1,"Kowalski, Jan"
+POST {{host}}/api/v1/parse-content
+Content-Type: application/json
+
+{
+  "type": "CSV",
+  "content": "aWQsbmFtZQoxLCJLb3dhbHNraSwgSmFuIg=="
+}
+
+### INTERNAL_JSON — tablica plaskich, jednorodnych obiektow
+# [{"id":1,"name":"Anna"},{"id":2,"name":"Piotr"}]
+POST {{host}}/api/v1/parse-content
+Content-Type: application/json
+
+{
+  "type": "INTERNAL_JSON",
+  "content": "W3siaWQiOjEsIm5hbWUiOiJBbm5hIn0seyJpZCI6MiwibmFtZSI6IlBpb3RyIn1d"
+}
+
+### 400 — nieobslugiwany typ
+POST {{host}}/api/v1/parse-content
+Content-Type: application/json
+
+{
+  "type": "XML",
+  "content": "W10="
+}
+
+### 400 — brak pola "type"
+POST {{host}}/api/v1/parse-content
+Content-Type: application/json
+
+{
+  "content": "W10="
+}
+
+### 422 — tresc nie jest poprawnym Base64
+POST {{host}}/api/v1/parse-content
+Content-Type: application/json
+
+{
+  "type": "CSV",
+  "content": "!!!to-nie-jest-base64!!!"
+}
+
+### 422 — JSON z zagniezdzeniem i niejednorodnymi polami (dwa bledy naraz)
+# [{"id":1,"tags":["a"]},{"other":2}]
+POST {{host}}/api/v1/parse-content
+Content-Type: application/json
+
+{
+  "type": "INTERNAL_JSON",
+  "content": "W3siaWQiOjEsInRhZ3MiOlsiYSJdfSx7Im90aGVyIjoyfV0="
+}
+
+### 415 — zly Content-Type
+POST {{host}}/api/v1/parse-content
+Content-Type: text/plain
+
+{
+  "type": "CSV",
+  "content": "W10="
+}

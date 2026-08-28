@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ContentParser.Api/ContentParser.Api.csproj" />
+    <Project Path="src/ContentParser.Infrastructure/ContentParser.Parser.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ContentParser.Api.Tests/ContentParser.Api.Tests.csproj" />
+    <Project Path="tests/ContentParser.Infrastructure.Tests/ContentParser.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

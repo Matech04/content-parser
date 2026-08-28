@@ -1,0 +1,12 @@
+<Project>
+  <!-- See https://aka.ms/dotnet/msbuild/customize for more details on customizing your build -->
+  <PropertyGroup>
+    <!-- Bez tego reguly IDE* z .editorconfig dzialaja tylko w IDE, nie w `dotnet build`. -->
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!-- Warunek dzialania IDE0005 (nieuzywane usingi) przy buildzie.
+         CS1591 wyciszone, bo nie wymagamy komentarzy XML dla kazdego publicznego typu. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+</Project>
