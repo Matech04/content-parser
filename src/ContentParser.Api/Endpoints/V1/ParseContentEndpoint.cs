@@ -1,12 +1,12 @@
 using ContentParser.Api.Contracts.V1;
 
-using ContentParser.Parser.Parsers.Services;
+using ContentParser.Core.Parsers.Services;
 
 namespace ContentParser.Api.Endpoints.V1;
 
-public static class ParseContentEndpoint
+internal static class ParseContentEndpoint
 {
-    public static RouteHandlerBuilder Map(IEndpointRouteBuilder group) =>
+    internal static RouteHandlerBuilder Map(IEndpointRouteBuilder group) =>
         group.MapPost("/parse-content", Handle)
             .WithName("ParseContent")
             .WithSummary("Dekoduje ladunek Base64 i parsuje go do ujednoliconej struktury.")
@@ -18,7 +18,7 @@ public static class ParseContentEndpoint
             .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .Produces(StatusCodes.Status415UnsupportedMediaType);
 
-    public static IResult Handle(ParseContentRequestDto request, ContentParsingService parsingService) =>
+    internal static IResult Handle(ParseContentRequestDto request, ContentParsingService parsingService) =>
         parsingService
             .ParseContent(request.Type, request.Content)
             .Map(ParseContentResponseDto.From)

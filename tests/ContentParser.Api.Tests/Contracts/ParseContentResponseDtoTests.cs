@@ -2,7 +2,7 @@ using System.Text.Json;
 
 using ContentParser.Api.Contracts.V1;
 
-using ContentParser.Parser.Models;
+using ContentParser.Core.Models;
 
 namespace ContentParser.Api.Tests.Contracts;
 

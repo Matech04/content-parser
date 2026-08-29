@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ContentParser.Infrastructure\ContentParser.Parser.csproj" />
+    <ProjectReference Include="..\ContentParser.Core\ContentParser.Core.csproj" />
   </ItemGroup>
 
 </Project>

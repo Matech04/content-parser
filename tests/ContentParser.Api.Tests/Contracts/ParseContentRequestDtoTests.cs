@@ -22,7 +22,6 @@ public class ParseContentRequestDtoTests
     [Fact]
     public void MissingProperties_DeserializeToNull()
     {
-        // NRT nie sa egzekwowane w runtime — dlatego wlasciwosci sa jawnie nullowalne.
         var dto = JsonSerializer.Deserialize<ParseContentRequestDto>("{}", Web);
 
         Assert.NotNull(dto);

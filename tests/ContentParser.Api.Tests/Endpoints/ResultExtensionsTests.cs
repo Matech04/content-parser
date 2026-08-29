@@ -1,8 +1,8 @@
 using ContentParser.Api.Endpoints;
 using ContentParser.Api.Tests.Infrastructure;
 
-using ContentParser.Parser.Results;
-using ContentParser.Parser.Results.Errors;
+using ContentParser.Core.Results;
+using ContentParser.Core.Results.Errors;
 
 using Microsoft.AspNetCore.Http;
 
@@ -109,7 +109,6 @@ public class ResultExtensionsTests
     [Fact]
     public async Task MultipleErrors_AreAllExposedUnderErrorsExtension()
     {
-        // Agregacja bledow ze specyfikacji nie moze ginac na granicy HTTP.
         var response = await HttpResultExecutor.ExecuteAsync(
             Result.Fail(
                 new ValidationError.JsonElementIsNotAnObject(1),

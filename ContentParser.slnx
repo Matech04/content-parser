@@ -1,10 +1,10 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/ContentParser.Api/ContentParser.Api.csproj" />
-    <Project Path="src/ContentParser.Infrastructure/ContentParser.Parser.csproj" />
+    <Project Path="src/ContentParser.Core/ContentParser.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ContentParser.Api.Tests/ContentParser.Api.Tests.csproj" />
-    <Project Path="tests/ContentParser.Infrastructure.Tests/ContentParser.Infrastructure.Tests.csproj" />
+    <Project Path="tests/ContentParser.Core.Tests/ContentParser.Core.Tests.csproj" />
   </Folder>
 </Solution>

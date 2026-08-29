@@ -104,7 +104,8 @@ ale się nie da). Odpowiada to trzem klasom błędów w kodzie: `RequestError`, 
 
 ### CSV
 
-Parser zgodny z RFC 4180, napisany ręcznie (bez biblioteki) — patrz uzasadnienie niżej.
+Tokenizację wykonuje biblioteka [`CsvHelper`](https://joshclose.github.io/CsvHelper/) w trybie
+RFC 4180; walidacja i raportowanie błędów są własne — patrz uzasadnienie niżej.
 
 * pierwszy wiersz to **nagłówek**; jego nazwy stają się nazwami pól,
 * pola mogą być cytowane: `"Kowalski, Jan"` — wewnątrz cudzysłowów dozwolone są przecinki
@@ -116,7 +117,24 @@ Parser zgodny z RFC 4180, napisany ręcznie (bez biblioteki) — patrz uzasadnie
 
 Odrzucane jest: brak nagłówka, pusta nazwa kolumny, zduplikowana kolumna, wiersz o innej
 liczbie pól niż nagłówek, niedomknięty cudzysłów. Błędy raportowane są z **numerem wiersza
-liczonym tak, jak widzi go użytkownik w pliku** (nagłówek = wiersz 1).
+liczonym tak, jak widzi go użytkownik w pliku** (nagłówek = wiersz 1) — numer pochodzi wprost
+z parsera, więc puste linie w środku pliku go nie przesuwają.
+
+Konfiguracja `CsvHelper` jest celowo minimalna i każdy jej element odpowiada regule powyżej:
+
+| Ustawienie | Po co |
+|---|---|
+| `HasHeaderRecord = false` | nagłówek walidujemy sami — biblioteka odrzuciłaby duplikat wyjątkiem, bez kodu błędu i indeksu kolumny |
+| `IgnoreBlankLines = true` | puste linie (w tym końcowe) są pomijane |
+| `DetectColumnCountChanges = false` | rozjazd liczby pól ma dać `Result` z **kompletem** wierszy, a nie wyjątek na pierwszym |
+| `BadDataFound` | biblioteka nie rzuca na złe cytowanie, tylko zgłasza pole — patrz niżej |
+
+Ostatni punkt jest jedynym miejscem, gdzie trzeba było dołożyć logikę: `CsvHelper` zgłasza jako
+„bad data" **każde** podejrzane cytowanie, również nieszkodliwy cudzysłów w środku niecytowanego
+pola (`ab"cd`), który jest tu poprawną wartością. Błędem jest wyłącznie cudzysłów, który nigdy się
+nie zamyka: pole zaczyna się cudzysłowem i zawiera ich nieparzystą liczbę (`""` to escape, więc
+liczy się parzyście). Taki błąd może z definicji wystąpić tylko w ostatnim wierszu — niedomknięty
+cudzysłów pochłania treść aż do końca pliku — i stamtąd bierze się numer wiersza w komunikacie.
 
 ### INTERNAL_JSON
 
@@ -169,14 +187,23 @@ błędna konfiguracja przerywa start aplikacji, zamiast ujawnić się przy pierw
 ```
 src/
   ContentParser.Api/               warstwa HTTP — kontrakty, endpointy, mapowanie na Problem Details
-  ContentParser.Infrastructure/    logika parsowania — bez żadnej zależności od ASP.NET
+  ContentParser.Core/              logika parsowania — bez żadnej zależności od ASP.NET
 tests/
-  ContentParser.Api.Tests/             testy jednostkowe + integracyjne (WebApplicationFactory)
-  ContentParser.Infrastructure.Tests/  testy parserów, specyfikacji i typu Result
+  ContentParser.Api.Tests/         testy jednostkowe + integracyjne (WebApplicationFactory)
+  ContentParser.Core.Tests/        testy parserów, specyfikacji i typu Result
 ```
 
-Projekt `Infrastructure` **nie zna HTTP**. Dzięki temu logikę parsowania da się hostować
+Nazwa `Core`, a nie `Infrastructure`, jest celowa: w słowniku warstw *infrastructure* to adaptery
+do świata zewnętrznego (baza, kolejka, klient HTTP). Tu mieszka logika domenowa, więc nazwanie jej
+„infrastrukturą" odwracałoby kierunek zależności. Katalog, plik `.csproj` i `RootNamespace` noszą
+tę samą nazwę.
+
+Projekt `Core` **nie zna HTTP**. Dzięki temu logikę parsowania da się hostować
 w konsoli, workerze albo teście bez frameworka webowego.
+
+**W kodzie nie ma komentarzy.** Nazwy typów, metod i testów mają nieść znaczenie same z siebie,
+a każde „dlaczego", które nie mieści się w nazwie, opisane jest w tym README — poniższe sekcje są
+jedynym miejscem, w którym trzymane jest uzasadnienie decyzji projektowych.
 
 ### Zastosowane wzorce
 
@@ -189,14 +216,51 @@ w `ContentParsingService`. Dodanie formatu to jedna linia w `Program.cs` i nowa 
 > realna: OpenAPI nie wylistuje dozwolonych wartości i trzeba samodzielnie obsłużyć brak pola
 > (`type-missing`). Uznano, że rozszerzalność jest tu ważniejsza.
 
-**Specification** — reguły walidacji JSON jako osobne, komponowalne klasy składane przez
-`AndSpecification`. Złożenie **celowo nie skraca obliczeń**: dzięki temu użytkownik dostaje
-wszystkie naruszenia naraz. To jedyny powód, dla którego ten wzorzec zarabia tu na siebie —
-przy jednej regule byłby ozdobą, a nie rozwiązaniem.
+**Specification** — reguły walidacji JSON jako osobne klasy z pełną algebrą Boole'a:
+`And`, `Or`, `Not`. Każda specyfikacja zwraca `Result`, więc niesie jednocześnie **werdykt**
+(spełniona / niespełniona) i **uzasadnienie** (lista błędów). Te dwie warstwy rządzą się różnymi
+prawami i warto je rozdzielić w głowie:
 
-**Builder** — `JsonValidatorBuilder` składa zestaw specyfikacji. Powtórzone wywołanie tej samej
-metody nadpisuje regułę, więc nie da się zdublować błędów. Walidator budowany jest **raz**,
-w konstruktorze parsera, a nie przy każdym żądaniu.
+| Operator | Werdykt | Błędy |
+|---|---|---|
+| `a.And(b)` | spełnione, gdy oba | suma błędów obu stron |
+| `a.Or(b)` | spełnione, gdy którekolwiek | suma błędów — **tylko** gdy oba zawiodą |
+| `a.Not(error)` | spełnione, gdy `a` **nie** jest spełnione | podany `error`; błędy `a` są odrzucane |
+
+Na poziomie werdyktu jest to zwykła algebra Boole'a i **jest to sprawdzone testami**:
+prawa De Morgana, podwójna negacja, przemienność, łączność, wyłączony środek i niesprzeczność
+(`SpecificationLawsTests`). Na poziomie błędów obowiązują dwie asymetryczne decyzje, obie wynikające
+z jednej zasady — *licz tylko te obliczenia, których wynik może trafić do odpowiedzi*:
+
+* **`And` nie skraca obliczeń.** Gdy lewa strona zawiedzie, prawa i tak jest liczona, bo jej błędy
+  trafią do odpowiedzi. Dzięki temu klient dostaje komplet naruszeń, a nie pierwsze z brzegu.
+* **`Or` skraca obliczenia.** Gdy lewa strona przejdzie, całość przechodzi i błędy prawej nigdy
+  nie zostałyby pokazane — liczenie ich byłoby czystym kosztem. Werdykt jest identyczny w obie strony.
+
+**`Not` przyjmuje `Error` i to jest świadomy koszt.** Negacja reguły „wszystkie wartości są płaskie"
+to „któraś wartość jest zagnieżdżona" — takiego komunikatu nie da się wyprowadzić automatycznie
+z reguły pierwotnej. Alternatywą byłoby zmuszenie każdej specyfikacji do deklarowania błędu
+negacji z góry, czyli wymyślanie sześciu komunikatów, z których w tej domenie nie użyto by ani
+jednego. Powód negacji zna miejsce jej użycia, więc to ono go podaje.
+
+> Kontrakt INTERNAL_JSON jest czystą koniunkcją, więc produkcyjny walidator składa się wyłącznie
+> z `And`. `Or` i `Not` nie są w nim używane i **nie zostały tam wciśnięte na siłę** — są częścią
+> abstrakcji i mają własne testy. To odwrotność sytuacji, w której wzorzec deklaruje komponowalność,
+> a dostarcza jednego operatora.
+
+**Prekondycja tablicy jest w typie, nie w `if`-ie.** Reguły elementów to `Specification<JsonArray>`,
+a nie `Specification<JsonNode>` — nie mogą więc dostać czegoś, co tablicą nie jest, i nie powtarzają
+strażnika `if (węzeł nie jest tablicą) return Ok()`. Podnosi je do poziomu korzenia jeden adapter,
+`WhenArraySpecification`: dla węzła niebędącego tablicą jest spełniony w sposób pusty, bo brak
+tablicy zgłasza już `IsJsonArraySpecification` i dokładanie do tego „element 3 nie jest obiektem"
+byłoby szumem. Logicznie to implikacja `jest tablicą ⇒ reguła`; typowo — zwykłe zawężenie.
+
+**Builder** — `JsonValidatorBuilder` składa zestaw specyfikacji i owija reguły elementów
+w `WhenArraySpecification`. Powtórzone wywołanie tej samej metody nadpisuje regułę w miejscu,
+więc nie da się zdublować błędów ani przestawić ich kolejności. Reguły trzyma `List`, bo kolejność
+jest tu częścią kontraktu — błędy wracają w kolejności deklaracji reguł, a `Dictionary` nie daje
+na to żadnej gwarancji. Walidator budowany jest **raz**, w konstruktorze parsera, a nie przy
+każdym żądaniu.
 
 **Result** — `Result<T>` zamiast wyjątków dla przewidywalnych porażek.
 
@@ -220,26 +284,37 @@ programisty: nikt nie ma na to sensownej reakcji, więc właściwa jest głośna
 
 ### Decyzje warte odnotowania
 
-* **Własny parser CSV zamiast biblioteki.** `CsvHelper` byłby właściwym wyborem produkcyjnym,
-  ale zadanie sprawdza umiejętność parsowania formatu o zmiennej strukturze — obsługa cytowania,
-  wielolinijkowych pól i raportowania błędów jest tu widoczna, a nie schowana w zależności.
+* **`CsvHelper` do tokenizacji, własna warstwa walidacji.** Cytowanie, pola wielolinijkowe
+  i zakończenia linii to rozwiązany problem — nie ma powodu utrzymywać własnej maszyny stanów.
+  Biblioteka zwraca jednak surowe wiersze i wyjątki, więc nagłówek, zgodność liczby pól i limity
+  sprawdzane są tutaj, żeby błąd wracał jako `Result` z kodem (`csv-duplicate-column`,
+  `csv-row-field-count`, …) i numerem wiersza, a nie jako wyjątek biblioteki.
 * **Rate limiting partycjonowany po adresie klienta**, `429` (nie domyślne `503`) i `QueueLimit = 0`.
   Wspólny kubełek dla wszystkich pozwoliłby jednemu klientowi zagłodzić pozostałych, a kolejka
   trzymałaby połączenie otwarte zamiast szybko odmówić.
 * **Ścisłe dekodowanie UTF-8.** Domyślnie nieprawidłowe bajty zamieniają się w `U+FFFD`, przez co
   użytkownik dostawał komunikat o znaku, którego nigdy nie wysłał. Teraz to jawny błąd `invalid-utf8`.
 * **`ArrayPool` przy dekodowaniu Base64** — bufory do 5 MiB nie trafiają na stertę dużych obiektów.
+  Rozmiar sprawdzany jest dwa razy: najpierw po górnym oszacowaniu z długości Base64 (tani filtr,
+  jeszcze przed wynajęciem bufora), potem dokładnie — dopiero po dekodowaniu znany jest realny rozmiar.
+* **Błędy bindowania ciała żądania mapowane na status z wyjątku.** Kestrel i model binder zgłaszają
+  je jako `BadHttpRequestException` (m.in. `400` i `413`); domyślny handler zwróciłby na to `500`,
+  i to inaczej w Development niż w Production.
 
 ---
 
 ## Testy
 
-200 testów: `dotnet test`.
+243 testy: `dotnet test`.
 
 | Projekt | Zakres |
 |---|---|
-| `ContentParser.Infrastructure.Tests` | parsery CSV/JSON, dekoder Base64, każda specyfikacja, builder, `Result` |
+| `ContentParser.Core.Tests` | parsery CSV/JSON, dekoder Base64, każda specyfikacja, prawa algebry `And`/`Or`/`Not`, builder, `Result` |
 | `ContentParser.Api.Tests` | mapowanie błędów na Problem Details, endpoint, rejestracja tras, testy integracyjne przez `WebApplicationFactory` |
+
+Handlery endpointów są `internal` i widoczne dla testów przez `InternalsVisibleTo`
+(`src/ContentParser.Api/Properties/AssemblyInfo.cs`) — nie muszą być publiczne, żeby dało się
+je przetestować jednostkowo.
 
 Testy integracyjne przechodzą przez pełny potok HTTP — bindowanie, negocjację `Content-Type`,
 obsługę wyjątków i serializację — więc weryfikują kontrakt, którego testy jednostkowe nie dotykają

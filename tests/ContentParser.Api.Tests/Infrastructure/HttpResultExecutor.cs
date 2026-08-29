@@ -5,11 +5,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ContentParser.Api.Tests.Infrastructure;
 
-/// <summary>
-/// Wykonuje <see cref="IResult"/> na sztucznym <see cref="HttpContext"/>, zeby test
-/// mogl asertowac na tym, co realnie trafia do klienta (status, content-type, body),
-/// zamiast na konkretnym typie zwracanym przez <c>Results.*</c>.
-/// </summary>
 internal static class HttpResultExecutor
 {
     private static readonly IServiceProvider Services = BuildServices();

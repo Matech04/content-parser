@@ -1,8 +1,8 @@
 using ContentParser.Api.Endpoints;
 
-using ContentParser.Parser.Parsers;
-using ContentParser.Parser.Parsers.Options;
-using ContentParser.Parser.Parsers.Services;
+using ContentParser.Core.Parsers;
+using ContentParser.Core.Parsers.Options;
+using ContentParser.Core.Parsers.Services;
 
 using Microsoft.Extensions.Options;
 
@@ -29,7 +29,6 @@ builder.Services.AddApiRateLimiter();
 
 builder.WebHost.ConfigureKestrel((context, options) =>
 {
-    // Jedno zrodlo prawdy: ten sam obiekt opcji, ktory dostaje reszta aplikacji.
     var parsing = context.Configuration
         .GetSection(ParsingOptions.SectionName)
         .Get<ParsingOptions>() ?? new ParsingOptions();
@@ -47,8 +46,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseExceptionHandler(new ExceptionHandlerOptions
 {
-    // Bledy bindowania ciala rzucaja BadHttpRequestException (m.in. 400 i 413).
-    // Domyslny handler zwrocilby 500 — mapujemy status z wyjatku, zeby Dev i Prod byly spojne.
     StatusCodeSelector = exception => exception is BadHttpRequestException badRequest
         ? badRequest.StatusCode
         : StatusCodes.Status500InternalServerError,
@@ -60,5 +57,4 @@ app.MapApiEndpoints();
 
 app.Run();
 
-/// <summary>Widoczne dla testow integracyjnych opartych o WebApplicationFactory.</summary>
 public partial class Program;

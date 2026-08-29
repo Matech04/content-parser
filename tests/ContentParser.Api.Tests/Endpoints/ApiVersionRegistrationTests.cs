@@ -1,8 +1,8 @@
 using ContentParser.Api.Endpoints;
 
-using ContentParser.Parser.Parsers;
-using ContentParser.Parser.Parsers.Options;
-using ContentParser.Parser.Parsers.Services;
+using ContentParser.Core.Parsers;
+using ContentParser.Core.Parsers.Options;
+using ContentParser.Core.Parsers.Services;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;

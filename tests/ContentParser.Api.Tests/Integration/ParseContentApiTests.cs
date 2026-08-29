@@ -7,10 +7,6 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace ContentParser.Api.Tests.Integration;
 
-/// <summary>
-/// Testy przez pelny potok HTTP: bindowanie, negocjacja Content-Type, obsluga wyjatkow
-/// i serializacja. Sprawdzaja kontrakt, ktorego testy jednostkowe endpointu nie dotykaja.
-/// </summary>
 public class ParseContentApiTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private const string Url = "/api/v1/parse-content";

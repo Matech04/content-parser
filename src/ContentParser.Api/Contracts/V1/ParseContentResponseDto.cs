@@ -1,10 +1,7 @@
-using ContentParser.Parser.Models;
+using ContentParser.Core.Models;
 
 namespace ContentParser.Api.Contracts.V1;
 
-/// <summary>
-/// Ujednolicona odpowiedz — identyczna dla CSV i INTERNAL_JSON.
-/// </summary>
 public sealed record ParseContentResponseDto(
     string Status,
     int ProcessedCount,

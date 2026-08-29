@@ -4,9 +4,9 @@ using ContentParser.Api.Contracts.V1;
 using ContentParser.Api.Endpoints.V1;
 using ContentParser.Api.Tests.Infrastructure;
 
-using ContentParser.Parser.Parsers;
-using ContentParser.Parser.Parsers.Options;
-using ContentParser.Parser.Parsers.Services;
+using ContentParser.Core.Parsers;
+using ContentParser.Core.Parsers.Options;
+using ContentParser.Core.Parsers.Services;
 
 using Microsoft.AspNetCore.Http;
 
